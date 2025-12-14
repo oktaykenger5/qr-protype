@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR Sipariş – Prototip</title>
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --muted:#9ca3af; --pri:#22c55e; --sec:#38bdf8; --warn:#f59e0b; }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto}
+    body{margin:0;background:linear-gradient(120deg,#020617,#020617 40%,#020617);color:#e5e7eb}
+    header{position:sticky;top:0;background:#020617cc;backdrop-filter:blur(8px);padding:12px 16px;display:flex;gap:8px;align-items:center;z-index:5}
+    header h1{font-size:18px;margin:0}
+    header .chip{background:#020617;border:1px solid #1f2937;border-radius:999px;padding:4px 10px;font-size:12px;color:#c7d2fe}
+    main{padding:16px;display:grid;grid-template-columns:1fr;gap:16px}
+    .card{background:linear-gradient(180deg,#020617,#020617);border:1px solid #1f2937;border-radius:16px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .btn{border-radius:12px;border:1px solid #1f2937;background:#020617;color:#e5e7eb;padding:10px 12px;cursor:pointer}
+    .btn.pri{background:linear-gradient(180deg,#22c55e,#16a34a);border:none;color:#022c22}
+    .btn.sec{background:linear-gradient(180deg,#38bdf8,#0ea5e9);border:none;color:#022c22}
+    .btn.warn{background:linear-gradient(180deg,#f59e0b,#d97706);border:none;color:#2b1b00}
+    .btn.ghost{background:transparent}
+    .tag{font-size:11px;color:#a5b4fc;border:1px dashed #1f2937;border-radius:8px;padding:2px 6px}
+    .muted{color:var(--muted)}
+    .sp{flex:1}
+    .list{display:grid;gap:8px}
+    .item{display:flex;gap:10px;align-items:center;background:#020617;border:1px solid #1f2937;border-radius:12px;padding:10px}
+    .item img{width:48px;height:48px;border-radius:10px;object-fit:cover}
+    .item h4{margin:0;font-size:14px}
+    .item p{margin:2px 0 0;font-size:12px;color:#9ca3af}
+    .price{font-weight:700}
+    .pill{font-size:12px;border-radius:999px;padding:4px 8px;border:1px solid #1f2937}
+    .cart{position:fixed;right:12px;bottom:12px;background:#020617;border:1px solid #1f2937;border-radius:16px;padding:12px;min-width:280px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+    .cart h3{margin:0 0 8px 0}
+    .cart ul{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+    .cart li{display:flex;gap:6px;align-items:center;font-size:13px}
+    .cart .total{display:flex;justify-content:space-between;margin-top:8px;font-weight:700}
+    .tabs{display:flex;gap:8px}
+    .tab{padding:8px 10px;border-radius:10px;border:1px solid #1f2937;cursor:pointer}
+    .tab.active{background:#020617}
+    .badge{background:#020617;border:1px solid #1f2937;border-radius:8px;padding:4px 6px;font-size:11px}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:#020617;border:1px solid #1f2937;border-radius:12px;padding:10px 12px;opacity:0;transition:.3s}
+    .toast.show{opacity:1}
+    .kitchen{display:none}
+    .kitchen .order{border:1px solid #1f2937;border-radius:12px;padding:10px;margin-bottom:8px}
+    .split{display:grid;gap:8px}
+    .offline{position:fixed;left:12px;bottom:12px;background:#020617;border:1px solid #1f2937;border-radius:12px;padding:8px 10px;font-size:12px}
+  </style>
+</head>
+<body>
+<header>
+  <h1>QR Sipariş</h1>
+  <span class="chip">Masa: <b id="tableNo">12</b></span>
+  <span class="chip">Oturum: <b id="sessionId"></b></span>
+  <span class="sp"></span>
+  <button class="btn ghost" onclick="toggleKitchen()">Garson Ekranı</button>
+</header>
+
+<main>
+  <section class="card">
+    <div class="row">
+      <div class="tabs">
+        <div class="tab active" onclick="showCat('Kahvaltı')">Kahvaltı</div>
+        <div class="tab" onclick="showCat('İçecek')">İçecek</div>
+        <div class="tab" onclick="showCat('Tatlı')">Tatlı</div>
+      </div>
+      <span class="sp"></span>
+      <span class="tag">Uygulama Yok • Offline Destek</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Menü</h3>
+    <div id="menu" class="list"></div>
+  </section>
+
+  <section class="card">
+    <h3>Garson Çağır</h3>
+    <div class="grid">
+      <button class="btn warn" onclick="callWaiter('Hesap')">Hesap</button>
+      <button class="btn warn" onclick="callWaiter('Sorun')">Sorun</button>
+      <button class="btn warn" onclick="callWaiter('Sipariş Ekleme')">Sipariş Ekleme</button>
+      <button class="btn warn" onclick="callWaiter('Su / Yardım')">Su / Yardım</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Hesap Bölme</h3>
+    <div class="split">
+      <button class="btn sec" onclick="payMine()">Benimkini Öde</button>
+      <button class="btn sec" onclick="payEqual()">Eşit Böl</button>
+    </div>
+  </section>
+
+  <section class="card kitchen" id="kitchen">
+    <h3>Garson / Mutfak Ekranı</h3>
+    <div id="orders"></div>
+  </section>
+</main>
+
+<div class="cart" id="cart">
+  <h3>Sepet</h3>
+  <ul id="cartList"></ul>
+  <div class="total"><span>Toplam</span><span id="total">₺0</span></div>
+  <div class="row" style="margin-top:8px">
+    <button class="btn pri" onclick="sendOrder()">Siparişi Gönder</button>
+    <span class="sp"></span>
+    <span class="badge" id="offlineBadge">Online</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="offline" id="offline">Offline Mod</div>
+
+<script>
+  // ---- Basit Veri ----
+  const MENU = {
+    'Kahvaltı':[
+      {id:1,name:'Serpme Kahvaltı',price:220,img:'https://picsum.photos/80?1',pair:'Çay'},
+      {id:2,name:'Menemen',price:120,img:'https://picsum.photos/80?2',pair:'Ayran'}
+    ],
+    'İçecek':[
+      {id:3,name:'Çay',price:20,img:'https://picsum.photos/80?3',pair:'Tatlı'},
+      {id:4,name:'Kahve',price:45,img:'https://picsum.photos/80?4',pair:'Tatlı'}
+    ],
+    'Tatlı':[
+      {id:5,name:'Cheesecake',price:95,img:'https://picsum.photos/80?5',pair:'Kahve'}
+    ]
+  };
+
+  const state = {
+    cat:'Kahvaltı',
+    cart: JSON.parse(localStorage.getItem('cart')||'[]'),
+    orders: JSON.parse(localStorage.getItem('orders')||'[]'),
+    waiter: JSON.parse(localStorage.getItem('waiter')||'[]'),
+    online: navigator.onLine
+  };
+
+  const sid = localStorage.getItem('sid') || Math.random().toString(36).slice(2,8);
+  localStorage.setItem('sid',sid);
+  sessionId.textContent = sid;
+
+  function showCat(c){ state.cat=c; document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); event.target.classList.add('active'); renderMenu(); }
+
+  function renderMenu(){
+    const el = document.getElementById('menu'); el.innerHTML='';
+    MENU[state.cat].forEach(p=>{
+      const d = document.createElement('div'); d.className='item';
+      d.innerHTML = `<img src="${p.img}"/><div class="sp"><h4>${p.name}</h4><p>Öneri: ${p.pair}</p></div><div class="price">₺${p.price}</div><button class="btn" onclick='add(${JSON.stringify(p)})'>Ekle</button>`;
+      el.appendChild(d);
+    });
+  }
+
+  function add(p){
+    state.cart.push({...p,by:sid}); save(); renderCart(); upsell(p);
+  }
+
+  function renderCart(){
+    const ul = document.getElementById('cartList'); ul.innerHTML=''; let t=0;
+    state.cart.forEach((i,idx)=>{ t+=i.price; const li=document.createElement('li'); li.innerHTML=`<span class="pill">${i.by}</span> ${i.name} <span class="sp"></span> ₺${i.price}`; ul.appendChild(li); });
+    document.getElementById('total').textContent = '₺'+t;
+    localStorage.setItem('cart',JSON.stringify(state.cart));
+  }
+
+  function upsell(p){ toast(`Bunu alanlar genelde <b>${p.pair}</b> da ekliyor.`); }
+
+  function sendOrder(){
+    const order = {table:tableNo.textContent, session:sid, items:[...state.cart], time:new Date().toLocaleTimeString(), status:'Yeni'};
+    state.orders.push(order); state.cart=[]; save(); renderCart(); renderKitchen(); toast('Sipariş gönderildi');
+  }
+
+  function renderKitchen(){
+    const k = document.getElementById('orders'); k.innerHTML='';
+    state.orders.forEach(o=>{
+      const d=document.createElement('div'); d.className='order';
+      d.innerHTML=`<b>Masa ${o.table}</b> • ${o.time}<ul>${o.items.map(i=>`<li>${i.name}</li>`).join('')}</ul><button class="btn" onclick="o.status='Hazırlanıyor';save()">Hazırlanıyor</button>`;
+      k.appendChild(d);
+    });
+  }
+
+  function toggleKitchen(){ const k=document.getElementById('kitchen'); k.style.display = k.style.display==='none'?'block':'none'; renderKitchen(); }
+
+  function callWaiter(r){ state.waiter.push({table:tableNo.textContent,reason:r,time:new Date().toLocaleTimeString()}); save(); toast('Garson çağrıldı: '+r); }
+
+  function payMine(){ const mine = state.cart.filter(i=>i.by===sid); toast('Benimkini öde: ₺'+mine.reduce((a,b)=>a+b.price,0)); }
+  function payEqual(){ const total = state.cart.reduce((a,b)=>a+b.price,0); toast('Eşit böl: ₺'+Math.ceil(total/2)); }
+
+  function toast(msg){ const t=document.getElementById('toast'); t.innerHTML=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
+
+  function save(){ localStorage.setItem('orders',JSON.stringify(state.orders)); localStorage.setItem('waiter',JSON.stringify(state.waiter)); }
+
+  function net(){ state.online = navigator.onLine; offlineBadge.textContent = state.online?'Online':'Offline'; offline.style.display = state.online?'none':'block'; }
+  window.addEventListener('online',net); window.addEventListener('offline',net);
+
+  renderMenu(); renderCart(); net();
+</script>
+</body>
+</html>
